@@ -1,0 +1,36 @@
+{
+  "name": "Auth-System(assignment)",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/input.css -o ./public/styles.css",
+    "build:ts": "tsc",
+    "build": "pnpm build:css && pnpm build:ts",
+    "dev": "concurrently \"tailwindcss -i ./src/input.css -o ./public/styles.css --watch\" \"tsx watch src/app.ts\"",
+    "start": "tsx src/app.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.20.0",
+      "onFail": "download"
+    }
+  },
+  "type": "module",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.2.0",
+    "concurrently": "^10.0.5",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  }
+}

@@ -23,9 +23,17 @@ app.use(express.static(publicPath));
 // API Routes
 app.use("/api", authRouter);
 
-// Fallback route for root
-app.get("/", (_req, res) => {
+// Fallback routes for HTML pages
+app.get(["/", "/login"], (_req, res) => {
   res.sendFile(path.join(publicPath, "index.html"));
+});
+
+app.get("/signup", (_req, res) => {
+  res.sendFile(path.join(publicPath, "signup.html"));
+});
+
+app.get("/dashboard", (_req, res) => {
+  res.sendFile(path.join(publicPath, "dashboard.html"));
 });
 
 export default app;

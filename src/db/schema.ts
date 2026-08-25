@@ -21,7 +21,20 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
 
+export const otps = pgTable("otps", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // 'email_verify' | 'phone_verify' | 'login_mfa'
+  target: text("target").notNull(), // email address or phone number
+  code: text("code").notNull(), // 6-digit code
+  expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
+  used: boolean("used").default(false).notNull(),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
+export type Otp = typeof otps.$inferSelect;
+export type NewOtp = typeof otps.$inferInsert;

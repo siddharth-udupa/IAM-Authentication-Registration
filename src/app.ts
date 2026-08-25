@@ -1,25 +1,31 @@
 import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
+import authRouter from "./routes/auth.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Static file serving
 const publicPath = path.join(__dirname, "../public");
-
-// Serve static files from public directory
 app.use(express.static(publicPath));
 
-// Fallback to index.html for root path
+// API Routes
+app.use("/api", authRouter);
+
+// Fallback route for root
 app.get("/", (_req, res) => {
   res.sendFile(path.join(publicPath, "index.html"));
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
 });
 
 export default app;

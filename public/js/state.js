@@ -42,7 +42,6 @@ class AuthState {
     if (Object.values(SCREENS).includes(screen)) {
       this.state.currentScreen = screen;
       
-      // Configure state when switching screens in natural production flow
       if (screen === SCREENS.EMAIL_OTP) {
         this.state.otpDigits = ['', '', '', '', '', ''];
         this.state.expirationSeconds = 165;
@@ -57,21 +56,27 @@ class AuthState {
     }
   }
 
-  update(fields) {
+  update(fields, notifyListeners = true) {
     this.state = { ...this.state, ...fields };
-    this.notify();
+    if (notifyListeners) {
+      this.notify();
+    }
   }
 
-  setOtpDigit(index, value) {
+  setOtpDigit(index, value, notifyListeners = false) {
     const newDigits = [...this.state.otpDigits];
     newDigits[index] = value;
     this.state.otpDigits = newDigits;
-    this.notify();
+    if (notifyListeners) {
+      this.notify();
+    }
   }
 
-  setOtpDigits(digitsArray) {
+  setOtpDigits(digitsArray, notifyListeners = false) {
     this.state.otpDigits = digitsArray.slice(0, 6);
-    this.notify();
+    if (notifyListeners) {
+      this.notify();
+    }
   }
 
   subscribe(listener) {

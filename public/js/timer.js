@@ -1,7 +1,8 @@
 /**
- * OTP Timer Countdown Manager
+ * OTP Timer Countdown Manager (Updates DOM in-place without focus disruption)
  */
 import { authState, SCREENS } from './state.js';
+import { formatTimer } from './views/otpView.js';
 
 class OtpTimerManager {
   constructor() {
@@ -29,20 +30,30 @@ class OtpTimerManager {
         }
 
         if (expirationSeconds === 0) {
-          // Timer expired! Trigger expired state transition
           this.stop();
           authState.setScreen(SCREENS.EMAIL_OTP_EXPIRED);
           return;
         }
 
         if (updated) {
-          authState.update({ expirationSeconds, resendSeconds });
+          // Update state silently without wiping out active DOM focus
+          authState.update({ expirationSeconds, resendSeconds }, false);
+
+          // In-place DOM text updates
+          const expElem = document.getElementById('expirationTimerText');
+          if (expElem) expElem.textContent = formatTimer(expirationSeconds);
+
+          const resendElem = document.getElementById('resendTimerText');
+          if (resendElem) resendElem.textContent = formatTimer(resendSeconds);
         }
       } else if (currentScreen === SCREENS.EMAIL_OTP_EXPIRED) {
         let { resendSeconds } = state;
         if (resendSeconds > 0) {
           resendSeconds -= 1;
-          authState.update({ resendSeconds });
+          authState.update({ resendSeconds }, false);
+
+          const resendElem = document.getElementById('resendTimerText');
+          if (resendElem) resendElem.textContent = formatTimer(resendSeconds);
         }
       }
     }, 1000);

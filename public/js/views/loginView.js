@@ -1,15 +1,12 @@
 /**
- * Login View Renderer (Production Authentication Flow)
+ * Login View Renderer (Production Authentication Flow - Smooth Focus Preserved)
  */
 import { authState, SCREENS } from '../state.js';
 import { Icons } from '../icons.js';
 
-let showPassword = false;
-
 export function renderLoginView(state) {
   const isError = state.currentScreen === SCREENS.LOGIN_ERROR;
 
-  // Header Icon styling
   const iconContainerBg = isError ? 'icon-bg-red' : 'icon-bg-blue';
   const iconSvg = isError ? Icons.shieldError('w-7 h-7') : Icons.shield('w-7 h-7');
 
@@ -20,7 +17,7 @@ export function renderLoginView(state) {
     <div class="w-full max-w-[400px] mx-auto flex flex-col justify-center animate-fade-in">
       <!-- Header Security Icon -->
       <div class="flex justify-center mb-4">
-        <div class="w-[56px] h-[56px] rounded-full ${iconContainerBg} flex items-center justify-center transition-colors duration-200">
+        <div id="loginHeaderIconBg" class="w-[56px] h-[56px] rounded-full ${iconContainerBg} flex items-center justify-center transition-colors duration-200">
           ${iconSvg}
         </div>
       </div>
@@ -39,7 +36,7 @@ export function renderLoginView(state) {
       <form id="loginForm" class="space-y-4" novalidate>
         <!-- Email/Username Input -->
         <div>
-          <div class="relative flex items-center h-[44px] rounded-lg border ${emailBorder} bg-white px-3.5 transition-all">
+          <div id="emailInputWrapper" class="relative flex items-center h-[44px] rounded-lg border ${emailBorder} bg-white px-3.5 transition-all">
             <span class="text-[#9CA3AF] mr-2.5 shrink-0 flex items-center">
               ${Icons.user('w-4 h-4')}
             </span>
@@ -52,22 +49,24 @@ export function renderLoginView(state) {
               autocomplete="email"
               required
             />
-            ${isError ? `<span class="text-error ml-2 shrink-0">${Icons.exclamation('w-4 h-4')}</span>` : ''}
+            <span id="emailErrorIcon" class="${isError ? '' : 'hidden'} text-error ml-2 shrink-0">
+              ${Icons.exclamation('w-4 h-4')}
+            </span>
           </div>
         </div>
 
         <!-- Password Input -->
         <div>
-          <div class="relative flex items-center h-[44px] rounded-lg border ${passwordBorder} bg-white px-3.5 transition-all">
+          <div id="passwordInputWrapper" class="relative flex items-center h-[44px] rounded-lg border ${passwordBorder} bg-white px-3.5 transition-all">
             <span class="text-[#9CA3AF] mr-2.5 shrink-0 flex items-center">
               ${Icons.lock('w-4 h-4')}
             </span>
             <input 
-              type="${showPassword ? 'text' : 'password'}" 
+              type="password" 
               id="loginPasswordInput"
               value="${state.password || ''}"
               placeholder="Password"
-              class="w-full bg-transparent text-dark text-[13px] outline-none placeholder-muted font-normal ${!showPassword && state.password ? 'tracking-wider font-semibold' : ''}"
+              class="w-full bg-transparent text-dark text-[13px] outline-none placeholder-muted font-normal tracking-wider font-semibold"
               autocomplete="current-password"
               required
             />
@@ -77,16 +76,14 @@ export function renderLoginView(state) {
               aria-label="Toggle password visibility"
               class="ml-2 shrink-0 text-[#9CA3AF] hover:text-[#4B5563] focus:outline-none cursor-pointer p-1"
             >
-              ${showPassword ? Icons.eyeOff('w-4 h-4') : Icons.eye('w-4 h-4')}
+              <span id="eyeIconContainer">${Icons.eye('w-4 h-4')}</span>
             </button>
           </div>
           
           <!-- Error Message directly beneath Password field -->
-          ${isError ? `
-            <div class="mt-2 text-left text-[11px] sm:text-[12px] text-error font-medium flex items-center gap-1.5 animate-slide-down">
-              <span>${state.loginErrorMessage}</span>
-            </div>
-          ` : ''}
+          <div id="loginErrorMessageContainer" class="${isError ? 'flex' : 'hidden'} mt-2 text-left text-[11px] sm:text-[12px] text-error font-medium items-center gap-1.5 animate-slide-down">
+            <span>${state.loginErrorMessage}</span>
+          </div>
         </div>
 
         <!-- Remember Me & Forgot Password Row -->
@@ -151,40 +148,73 @@ export function attachLoginEvents(container, state) {
   const passwordInput = container.querySelector('#loginPasswordInput');
   const rememberCheckbox = container.querySelector('#rememberMeCheckbox');
   const togglePasswordBtn = container.querySelector('#togglePasswordBtn');
+  const eyeIconContainer = container.querySelector('#eyeIconContainer');
   const loginForm = container.querySelector('#loginForm');
   const googleBtn = container.querySelector('#googleAuthBtn');
   const createAccountLink = container.querySelector('#createAccountLink');
   const forgotPasswordLink = container.querySelector('#forgotPasswordLink');
 
+  const emailInputWrapper = container.querySelector('#emailInputWrapper');
+  const passwordInputWrapper = container.querySelector('#passwordInputWrapper');
+  const emailErrorIcon = container.querySelector('#emailErrorIcon');
+  const loginErrorMessageContainer = container.querySelector('#loginErrorMessageContainer');
+  const loginHeaderIconBg = container.querySelector('#loginHeaderIconBg');
+
+  function clearErrorStateInDom() {
+    if (emailInputWrapper) {
+      emailInputWrapper.className = 'relative flex items-center h-[44px] rounded-lg border border-subtle focus-within:border-[#2445D8] focus-within:ring-2 focus-within:ring-[#2445D8]/20 bg-white px-3.5 transition-all';
+    }
+    if (passwordInputWrapper) {
+      passwordInputWrapper.className = 'relative flex items-center h-[44px] rounded-lg border border-subtle focus-within:border-[#2445D8] focus-within:ring-2 focus-within:ring-[#2445D8]/20 bg-white px-3.5 transition-all';
+    }
+    if (emailErrorIcon) emailErrorIcon.classList.add('hidden');
+    if (loginErrorMessageContainer) loginErrorMessageContainer.classList.add('hidden');
+    if (loginHeaderIconBg) {
+      loginHeaderIconBg.className = 'w-[56px] h-[56px] rounded-full icon-bg-blue flex items-center justify-center transition-colors duration-200';
+      loginHeaderIconBg.innerHTML = Icons.shield('w-7 h-7');
+    }
+    authState.update({ currentScreen: SCREENS.LOGIN_DEFAULT }, false);
+  }
+
   if (emailInput) {
     emailInput.addEventListener('input', (e) => {
-      authState.update({ email: e.target.value });
-      // If was showing error, reset error highlight on input typing
-      if (state.currentScreen === SCREENS.LOGIN_ERROR) {
-        authState.update({ currentScreen: SCREENS.LOGIN_DEFAULT });
+      // Update state silently without destroying input DOM
+      authState.update({ email: e.target.value }, false);
+      if (authState.getState().currentScreen === SCREENS.LOGIN_ERROR) {
+        clearErrorStateInDom();
       }
     });
   }
 
   if (passwordInput) {
     passwordInput.addEventListener('input', (e) => {
-      authState.update({ password: e.target.value });
-      if (state.currentScreen === SCREENS.LOGIN_ERROR) {
-        authState.update({ currentScreen: SCREENS.LOGIN_DEFAULT });
+      // Update state silently without destroying input DOM
+      authState.update({ password: e.target.value }, false);
+      if (authState.getState().currentScreen === SCREENS.LOGIN_ERROR) {
+        clearErrorStateInDom();
       }
     });
   }
 
   if (rememberCheckbox) {
     rememberCheckbox.addEventListener('change', (e) => {
-      authState.update({ rememberMe: e.target.checked });
+      authState.update({ rememberMe: e.target.checked }, false);
     });
   }
 
-  if (togglePasswordBtn) {
-    togglePasswordBtn.addEventListener('click', () => {
-      showPassword = !showPassword;
-      authState.notify();
+  if (togglePasswordBtn && passwordInput) {
+    togglePasswordBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      if (isPassword) {
+        passwordInput.classList.remove('tracking-wider', 'font-semibold');
+      } else {
+        passwordInput.classList.add('tracking-wider', 'font-semibold');
+      }
+      if (eyeIconContainer) {
+        eyeIconContainer.innerHTML = isPassword ? Icons.eyeOff('w-4 h-4') : Icons.eye('w-4 h-4');
+      }
     });
   }
 
@@ -194,14 +224,11 @@ export function attachLoginEvents(container, state) {
       const currEmail = (emailInput ? emailInput.value : authState.getState().email).trim();
       const currPassword = (passwordInput ? passwordInput.value : authState.getState().password).trim();
 
-      // Form Validation & Authentication Flow:
-      // If inputs are empty or contain 'invalid', transition to Login Error state
       if (!currEmail || !currPassword || currEmail.includes('invalid') || currPassword.includes('invalid')) {
-        authState.update({ email: currEmail, password: currPassword });
+        authState.update({ email: currEmail, password: currPassword }, false);
         authState.setScreen(SCREENS.LOGIN_ERROR);
       } else {
-        // Successful login credentials -> Move to Choose Verification Method
-        authState.update({ email: currEmail, password: currPassword });
+        authState.update({ email: currEmail, password: currPassword }, false);
         authState.setScreen(SCREENS.CHOOSE_METHOD);
       }
     });

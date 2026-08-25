@@ -1,10 +1,10 @@
 /**
- * Email OTP View Renderer (Production Authentication Flow)
+ * Email OTP View Renderer (Production Authentication Flow - Smooth Focus Preserved)
  */
 import { authState, SCREENS } from '../state.js';
 import { Icons } from '../icons.js';
 
-function formatTimer(seconds) {
+export function formatTimer(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
   const s = (seconds % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
@@ -73,7 +73,7 @@ export function renderOtpView(state) {
         </div>
       </div>
 
-      <!-- Error Messaging Area (Reserved height to prevent layout jumps) -->
+      <!-- Error Messaging Area -->
       <div class="min-h-[44px] flex flex-col items-center justify-center text-center text-[12px] sm:text-[12.5px] mb-3">
         ${isIncorrect ? `
           <div class="text-error font-medium space-y-0.5 animate-slide-down">
@@ -86,7 +86,7 @@ export function renderOtpView(state) {
           </div>
         ` : `
           <div class="text-muted">
-            Code expires in <span class="text-[#2445D8] font-semibold">${formatTimer(state.expirationSeconds)}</span>
+            Code expires in <span id="expirationTimerText" class="text-[#2445D8] font-semibold">${formatTimer(state.expirationSeconds)}</span>
           </div>
         `}
       </div>
@@ -95,7 +95,7 @@ export function renderOtpView(state) {
       <div class="flex flex-col items-center text-center space-y-2 select-none">
         ${isIncorrect ? `
           <div class="text-[12px] text-muted mb-1">
-            Code expires in <span class="text-[#2445D8] font-semibold">${formatTimer(state.expirationSeconds)}</span>
+            Code expires in <span id="expirationTimerText" class="text-[#2445D8] font-semibold">${formatTimer(state.expirationSeconds)}</span>
           </div>
         ` : ''}
 
@@ -109,13 +109,13 @@ export function renderOtpView(state) {
             Resend code
           </button>
           <p class="text-[12px] text-muted">
-            You can request a new code in <span class="text-[#2445D8] font-semibold">${formatTimer(state.resendSeconds)}</span>
+            You can request a new code in <span id="resendTimerText" class="text-[#2445D8] font-semibold">${formatTimer(state.resendSeconds)}</span>
           </p>
         ` : `
           <!-- Active or Countdown Resend State -->
           ${state.resendSeconds > 0 ? `
             <div class="text-[13px] text-muted">
-              Resend code <span class="text-muted">(${formatTimer(state.resendSeconds)})</span>
+              Resend code <span class="text-muted">(<span id="resendTimerText">${formatTimer(state.resendSeconds)}</span>)</span>
             </div>
           ` : `
             <button 
@@ -154,12 +154,7 @@ export function attachOtpEvents(container, state) {
     });
   }
 
-  // Focus the first OTP box automatically on screen render if empty
-  if (otpBoxes.length > 0 && !state.otpDigits.some(d => d !== '') && state.currentScreen !== SCREENS.EMAIL_OTP_EXPIRED) {
-    setTimeout(() => otpBoxes[0].focus(), 50);
-  }
-
-  // OTP Input Navigation & Paste Handling
+  // OTP Input Navigation & Focus Management
   otpBoxes.forEach((box, index) => {
     box.addEventListener('input', (e) => {
       const value = e.target.value;
@@ -169,7 +164,7 @@ export function attachOtpEvents(container, state) {
       }
 
       if (value.length > 0) {
-        authState.setOtpDigit(index, value.slice(-1));
+        authState.setOtpDigit(index, value.slice(-1), false);
         if (index < otpBoxes.length - 1) {
           otpBoxes[index + 1].focus();
         } else {
@@ -182,9 +177,9 @@ export function attachOtpEvents(container, state) {
       if (e.key === 'Backspace') {
         if (!box.value && index > 0) {
           otpBoxes[index - 1].focus();
-          authState.setOtpDigit(index - 1, '');
+          authState.setOtpDigit(index - 1, '', false);
         } else {
-          authState.setOtpDigit(index, '');
+          authState.setOtpDigit(index, '', false);
         }
       }
     });
@@ -196,9 +191,12 @@ export function attachOtpEvents(container, state) {
         const digits = pastedData.split('');
         const newDigits = ['', '', '', '', '', ''];
         digits.forEach((d, i) => {
-          if (i < 6) newDigits[i] = d;
+          if (i < 6) {
+            newDigits[i] = d;
+            if (otpBoxes[i]) otpBoxes[i].value = d;
+          }
         });
-        authState.setOtpDigits(newDigits);
+        authState.setOtpDigits(newDigits, false);
         
         const nextIndex = Math.min(digits.length, 5);
         if (otpBoxes[nextIndex]) {
@@ -228,15 +226,13 @@ export function attachOtpEvents(container, state) {
   function checkOtpSubmission() {
     const digits = authState.getState().otpDigits.join('');
     if (digits.length === 6) {
-      // Demo validation: 123456 or 482913 are valid OTPs
       if (digits === '123456' || digits === '482913') {
         alert('Verification successful! Logging in to SecureID...');
         authState.reset();
       } else {
-        // Wrong OTP -> Transition to State 5: Incorrect OTP
         const currentAttempts = authState.getState().attemptsLeft;
         const newAttempts = Math.max(0, currentAttempts - 1);
-        authState.update({ attemptsLeft: newAttempts });
+        authState.update({ attemptsLeft: newAttempts }, false);
         authState.setScreen(SCREENS.EMAIL_OTP_ERROR);
       }
     }

@@ -5,6 +5,7 @@ import { showAlert, hideAlert } from './utils.js';
 
 let currentUser = null;
 let currentOtpMode = 'email'; // 'email' | 'sms'
+let activeChallengeId = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const alertContainer = document.getElementById('alertContainer');
@@ -90,14 +91,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const res = await api.sendEmailOtp(currentUser.email);
         if (res.success) {
           currentOtpMode = 'email';
+          activeChallengeId = res.data.challengeId;
           otpModalTitle.textContent = 'Verify Email Address';
           otpModalSubtitle.textContent = `Enter the code sent to ${currentUser.email}`;
-          if (res.data.otp) {
-            otpDemoHint.textContent = `Demo Code: ${res.data.otp}`;
-            otpDemoHint.classList.remove('hidden');
-          } else {
-            otpDemoHint.classList.add('hidden');
-          }
+          otpDemoHint.textContent = 'Check backend terminal console for simulated OTP';
+          otpDemoHint.classList.remove('hidden');
           hideAlert(otpModalAlert);
           otpCodeInput.value = '';
           otpModal.classList.remove('hidden');
@@ -129,14 +127,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const res = await api.sendSmsOtp(currentUser.phone);
         if (res.success) {
           currentOtpMode = 'sms';
+          activeChallengeId = res.data.challengeId;
           otpModalTitle.textContent = 'Verify Phone Number';
           otpModalSubtitle.textContent = `Enter the code sent to ${currentUser.phone}`;
-          if (res.data.otp) {
-            otpDemoHint.textContent = `Demo Code: ${res.data.otp}`;
-            otpDemoHint.classList.remove('hidden');
-          } else {
-            otpDemoHint.classList.add('hidden');
-          }
+          otpDemoHint.textContent = 'Check backend terminal console for simulated OTP';
+          otpDemoHint.classList.remove('hidden');
           hideAlert(otpModalAlert);
           otpCodeInput.value = '';
           otpModal.classList.remove('hidden');
@@ -177,9 +172,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         let res;
         if (currentOtpMode === 'email') {
-          res = await api.verifyEmailOtp(currentUser.email, code);
+          res = await api.verifyEmailOtp({
+            challengeId: activeChallengeId,
+            email: currentUser.email,
+            code,
+          });
         } else {
-          res = await api.verifySmsOtp(currentUser.phone, code);
+          res = await api.verifySmsOtp({
+            challengeId: activeChallengeId,
+            phone: currentUser.phone,
+            code,
+          });
         }
 
         if (res.success) {

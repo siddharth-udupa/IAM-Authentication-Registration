@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, boolean, timestamp, integer } from "drizzle-orm/pg-core";
+import crypto from "crypto";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -8,6 +9,8 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").default(false).notNull(),
   phoneVerified: boolean("phone_verified").default(false).notNull(),
   mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
+  failedLoginAttempts: integer("failed_login_attempts").default(0).notNull(),
+  lockoutUntil: timestamp("lockout_until", { mode: "date", withTimezone: true }),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
@@ -23,12 +26,18 @@ export const sessions = pgTable("sessions", {
 
 export const otps = pgTable("otps", {
   id: uuid("id").defaultRandom().primaryKey(),
+  challengeId: text("challenge_id")
+    .$defaultFn(() => crypto.randomUUID())
+    .notNull(),
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
   type: text("type").notNull(), // 'email_verify' | 'phone_verify' | 'login_mfa'
+  channel: text("channel").default("email").notNull(), // 'email' | 'sms'
   target: text("target").notNull(), // email address or phone number
-  code: text("code").notNull(), // 6-digit code
+  code: text("code").notNull(), // stored code or code representation
   expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
   used: boolean("used").default(false).notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  maxAttempts: integer("max_attempts").default(3).notNull(),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).defaultNow().notNull(),
 });
 

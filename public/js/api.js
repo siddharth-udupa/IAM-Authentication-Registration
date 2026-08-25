@@ -2,26 +2,19 @@
 
 const API_BASE = '/api';
 
-/**
- * Helper to retrieve token from storage
- */
-export function getStoredToken() {
-  return localStorage.getItem('accessToken') || '';
+// In-memory token for optional authorization header when needed
+let inMemoryJwtToken = '';
+
+export function setMemoryToken(token) {
+  inMemoryJwtToken = token || '';
+}
+
+export function getMemoryToken() {
+  return inMemoryJwtToken;
 }
 
 /**
- * Helper to set token in storage
- */
-export function setStoredToken(token) {
-  if (token) {
-    localStorage.setItem('accessToken', token);
-  } else {
-    localStorage.removeItem('accessToken');
-  }
-}
-
-/**
- * Core fetch wrapper with JSON handling and authorization header
+ * Core fetch wrapper with JSON handling and cookie credentials
  */
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
@@ -30,15 +23,14 @@ async function request(endpoint, options = {}) {
     ...options.headers,
   };
 
-  const token = getStoredToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (inMemoryJwtToken) {
+    headers['Authorization'] = `Bearer ${inMemoryJwtToken}`;
   }
 
   const config = {
     ...options,
     headers,
-    credentials: 'same-origin', // send cookies
+    credentials: 'same-origin', // include HttpOnly cookies
   };
 
   try {
@@ -50,6 +42,7 @@ async function request(endpoint, options = {}) {
         success: false,
         status: res.status,
         error: data.error || data.message || `Request failed with status ${res.status}`,
+        data,
       };
     }
 
@@ -83,19 +76,19 @@ export const api = {
       body: JSON.stringify({ email, password }),
     });
     if (res.success && res.data.accessToken) {
-      setStoredToken(res.data.accessToken);
+      setMemoryToken(res.data.accessToken);
     }
     return res;
   },
 
   // Verify MFA code during login
-  async verifyLoginOtp({ email, code }) {
+  async verifyLoginOtp({ challengeId, email, code }) {
     const res = await request('/verify-login-otp', {
       method: 'POST',
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify({ challengeId, email, code }),
     });
     if (res.success && res.data.accessToken) {
-      setStoredToken(res.data.accessToken);
+      setMemoryToken(res.data.accessToken);
     }
     return res;
   },
@@ -109,10 +102,10 @@ export const api = {
   },
 
   // Verify Email OTP
-  async verifyEmailOtp(email, code) {
+  async verifyEmailOtp({ challengeId, email, code }) {
     return request('/verify-email-otp', {
       method: 'POST',
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify({ challengeId, email, code }),
     });
   },
 
@@ -125,10 +118,10 @@ export const api = {
   },
 
   // Verify SMS OTP
-  async verifySmsOtp(phone, code) {
+  async verifySmsOtp({ challengeId, phone, code }) {
     return request('/verify-sms-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone, code }),
+      body: JSON.stringify({ challengeId, phone, code }),
     });
   },
 
@@ -145,7 +138,7 @@ export const api = {
   // Logout user
   async logout() {
     const res = await request('/logout', { method: 'POST' });
-    setStoredToken(null);
+    setMemoryToken('');
     return res;
   },
 };

@@ -34,7 +34,7 @@
         SecureID
       </h1>
       <p class="relative z-10 text-[14px] text-blue-100/90 font-normal leading-snug">
-        Secure access<br>for everyone.
+        Secure authentication &<br>identity management.
       </p>
     </section>
 
@@ -48,11 +48,11 @@
             Welcome back!
           </h2>
           <p class="text-[13.5px] text-slate-500 font-normal">
-            Sign in to your account
+            Sign in to access your account
           </p>
         </div>
 
-        <!-- Notification Alert Container -->
+        <!-- Notification Alert Container (Lockout & Errors) -->
         <div id="alertContainer" class="hidden mb-4"></div>
 
         <!-- Login Form -->
@@ -105,13 +105,18 @@
             <label class="flex items-center cursor-pointer select-none">
               <input 
                 type="checkbox" 
+                id="rememberMeCheckbox"
                 class="w-[18px] h-[18px] rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#2563EB]"
               />
               <span class="ml-2 text-slate-600 font-normal">Remember me</span>
             </label>
-            <a href="#" class="text-[#2563EB] hover:text-blue-700 font-medium hover:underline transition-colors">
+            <button 
+              type="button"
+              id="forgotPasswordBtn"
+              class="text-[#2563EB] hover:text-blue-700 font-medium hover:underline transition-colors cursor-pointer bg-transparent border-0 p-0"
+            >
               Forgot password?
-            </a>
+            </button>
           </div>
 
           <!-- Primary Submit Button -->
@@ -125,24 +130,6 @@
             </button>
           </div>
         </form>
-
-        <div class="my-5 text-center">
-          <span class="text-[13px] text-slate-400 font-normal">or</span>
-        </div>
-
-        <button 
-          type="button" 
-          disabled
-          class="w-full h-[46px] bg-slate-50 border border-slate-200 text-slate-400 text-[14px] font-medium rounded-lg flex items-center justify-center gap-3 cursor-not-allowed opacity-60"
-        >
-          <svg class="w-4 h-4 shrink-0 opacity-50" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-          </svg>
-          <span>Continue with Google</span>
-        </button>
 
         <!-- Registration Link -->
         <div class="mt-6 text-center text-[13.5px] text-slate-500">
@@ -161,24 +148,25 @@
 
   <!-- MFA Verification Modal Overlay -->
   <div id="mfaModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100">
-      <div class="text-center mb-6">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative">
+      <button type="button" id="closeMfaModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      
+      <div class="text-center mb-5">
         <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 text-[#2563EB]">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
           </svg>
         </div>
         <h3 class="text-xl font-bold text-slate-900">Two-Factor Authentication</h3>
-        <p class="text-xs text-slate-500 mt-1">An authentication OTP code has been sent to your email.</p>
-        <!-- Demo hint for development convenience -->
-        <div id="mfaDemoHint" class="hidden mt-2 p-2 bg-blue-50 text-blue-700 text-xs rounded border border-blue-200"></div>
+        <p id="mfaModalSubtext" class="text-xs text-slate-500 mt-1">An authentication code has been sent to your email.</p>
+        <p class="text-[11px] text-blue-600 font-medium mt-1">(Check server console for simulated OTP code)</p>
       </div>
 
       <div id="mfaAlertContainer" class="hidden mb-4"></div>
 
       <form id="mfaForm" class="space-y-4">
         <div>
-          <label class="block text-xs font-medium text-slate-700 mb-1.5 text-center">Enter 6-digit OTP code</label>
+          <label class="block text-xs font-medium text-slate-700 mb-1.5 text-center">Enter 6-digit MFA OTP code</label>
           <input 
             type="text" 
             id="mfaCodeInput"
@@ -195,6 +183,46 @@
           class="w-full py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
         >
           Verify & Sign In
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Forgot Password Modal Overlay -->
+  <div id="forgotModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative">
+      <button type="button" id="closeForgotModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      
+      <div class="text-center mb-5">
+        <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-slate-900">Reset Password</h3>
+        <p class="text-xs text-slate-500 mt-1">Enter your registered email address to receive password reset instructions.</p>
+      </div>
+
+      <div id="forgotAlertContainer" class="hidden mb-4"></div>
+
+      <form id="forgotForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">Email address</label>
+          <input 
+            type="email" 
+            id="forgotEmailInput"
+            placeholder="student@example.com"
+            class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
+            required
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          id="forgotSubmitBtn"
+          class="w-full py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+        >
+          Send Reset Link
         </button>
       </form>
     </div>

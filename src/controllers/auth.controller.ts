@@ -12,6 +12,14 @@ function sanitizeUser(user: any) {
   return sanitized;
 }
 
+// Cookie configuration options
+const isProd = process.env.NODE_ENV === "production";
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: "lax" as const,
+};
+
 // 1. POST /api/register
 export const register = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -35,8 +43,32 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       mfaEnabled: mfa_enabled,
     });
 
+    // Generate 6-digit Email OTP challenge
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    const challenge = await otpModel.createOtpChallenge({
+      userId: newUser.id,
+      type: "email_verify",
+      channel: "email",
+      target: email,
+      code,
+      expiresAt,
+      maxAttempts: 3,
+    });
+
+    // Print simulated email to server console
+    console.log(`\n========================================`);
+    console.log(`[SIMULATED EMAIL]`);
+    console.log(`To: ${email}`);
+    console.log(`OTP: ${code}`);
+    console.log(`Challenge ID: ${challenge.challengeId}`);
+    console.log(`========================================\n`);
+
     return res.status(201).json({
-      message: "User registered successfully",
+      message: "Registration initiated. Email OTP sent.",
+      challengeId: challenge.challengeId,
+      method: "email",
       user: sanitizeUser(newUser),
     });
   } catch (error: any) {
@@ -56,18 +88,29 @@ export const sendEmailOtp = async (req: Request, res: Response): Promise<any> =>
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    await otpModel.createOtp({
+    const challenge = await otpModel.createOtpChallenge({
       userId: user ? user.id : null,
       type: "email_verify",
+      channel: "email",
       target: email,
       code,
       expiresAt,
+      maxAttempts: 3,
     });
+
+    // Console logging simulation
+    console.log(`\n========================================`);
+    console.log(`[SIMULATED EMAIL]`);
+    console.log(`To: ${email}`);
+    console.log(`OTP: ${code}`);
+    console.log(`Challenge ID: ${challenge.challengeId}`);
+    console.log(`========================================\n`);
 
     return res.json({
       message: "Email OTP sent successfully",
+      challengeId: challenge.challengeId,
+      method: "email",
       target: email,
-      otp: code,
       expiresAt,
     });
   } catch (error: any) {
@@ -78,24 +121,89 @@ export const sendEmailOtp = async (req: Request, res: Response): Promise<any> =>
 // 3. POST /api/verify-email-otp
 export const verifyEmailOtp = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, code } = req.body;
-    if (!email || !code) {
-      return res.status(400).json({ error: "Email and code are required" });
+    const { challengeId, email, code } = req.body;
+    if (!code || (!challengeId && !email)) {
+      return res.status(400).json({ error: "Code and challengeId or email are required" });
     }
 
-    const validOtp = await otpModel.findValidOtp(email, "email_verify", code);
-    if (!validOtp) {
-      return res.status(400).json({ error: "Invalid or expired OTP code" });
+    const result = await otpModel.verifyOtpChallenge({
+      challengeId,
+      target: email,
+      type: "email_verify",
+      code,
+    });
+
+    if (result.status === "wrong_code") {
+      return res.status(400).json({
+        error: "Invalid OTP code",
+        attemptsLeft: result.attemptsLeft,
+        status: "wrong_code",
+      });
     }
 
-    await otpModel.markOtpAsUsed(validOtp.id);
+    if (result.status === "expired") {
+      return res.status(400).json({
+        error: "OTP code has expired. Please request a new code.",
+        status: "expired",
+      });
+    }
 
-    const user = await userModel.findUserByEmail(email);
+    if (result.status === "max_attempts_exceeded") {
+      return res.status(400).json({
+        error: "Maximum verification attempts reached. Please request a new OTP code.",
+        attemptsLeft: 0,
+        status: "max_attempts_exceeded",
+      });
+    }
+
+    if (result.status !== "valid") {
+      return res.status(400).json({ error: "Invalid or expired OTP challenge", status: "invalid" });
+    }
+
+    // Email verification successful
+    const user = await userModel.findUserByEmail(email || result.otp?.target || "");
     if (user) {
       await userModel.markEmailVerified(user.id);
     }
 
-    return res.json({ message: "Email verified successfully" });
+    // Check if SMS verification / MFA step is required next
+    if (user && (user.phone || user.mfaEnabled)) {
+      const smsCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      const phoneTarget = user.phone || "SMS Device";
+
+      const smsChallenge = await otpModel.createOtpChallenge({
+        userId: user.id,
+        type: "phone_verify",
+        channel: "sms",
+        target: phoneTarget,
+        code: smsCode,
+        expiresAt,
+        maxAttempts: 3,
+      });
+
+      console.log(`\n========================================`);
+      console.log(`[SIMULATED SMS]`);
+      console.log(`To: ${phoneTarget}`);
+      console.log(`OTP: ${smsCode}`);
+      console.log(`Challenge ID: ${smsChallenge.challengeId}`);
+      console.log(`========================================\n`);
+
+      return res.json({
+        message: "Email verified successfully. SMS OTP sent.",
+        emailVerified: true,
+        nextStep: "sms_otp",
+        challengeId: smsChallenge.challengeId,
+        method: "sms",
+        phone: phoneTarget,
+      });
+    }
+
+    return res.json({
+      message: "Email verified successfully",
+      emailVerified: true,
+      registrationComplete: true,
+    });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || "Failed to verify email OTP" });
   }
@@ -113,18 +221,28 @@ export const sendSmsOtp = async (req: Request, res: Response): Promise<any> => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    await otpModel.createOtp({
+    const challenge = await otpModel.createOtpChallenge({
       userId: user ? user.id : null,
       type: "phone_verify",
+      channel: "sms",
       target: phone,
       code,
       expiresAt,
+      maxAttempts: 3,
     });
+
+    console.log(`\n========================================`);
+    console.log(`[SIMULATED SMS]`);
+    console.log(`To: ${phone}`);
+    console.log(`OTP: ${code}`);
+    console.log(`Challenge ID: ${challenge.challengeId}`);
+    console.log(`========================================\n`);
 
     return res.json({
       message: "SMS OTP sent successfully",
+      challengeId: challenge.challengeId,
+      method: "sms",
       target: phone,
-      otp: code,
       expiresAt,
     });
   } catch (error: any) {
@@ -135,24 +253,57 @@ export const sendSmsOtp = async (req: Request, res: Response): Promise<any> => {
 // 5. POST /api/verify-sms-otp
 export const verifySmsOtp = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { phone, code } = req.body;
-    if (!phone || !code) {
-      return res.status(400).json({ error: "Phone and code are required" });
+    const { challengeId, phone, code } = req.body;
+    if (!code || (!challengeId && !phone)) {
+      return res.status(400).json({ error: "Code and challengeId or phone are required" });
     }
 
-    const validOtp = await otpModel.findValidOtp(phone, "phone_verify", code);
-    if (!validOtp) {
-      return res.status(400).json({ error: "Invalid or expired SMS OTP code" });
+    const result = await otpModel.verifyOtpChallenge({
+      challengeId,
+      target: phone,
+      type: "phone_verify",
+      code,
+    });
+
+    if (result.status === "wrong_code") {
+      return res.status(400).json({
+        error: "Invalid SMS OTP code",
+        attemptsLeft: result.attemptsLeft,
+        status: "wrong_code",
+      });
     }
 
-    await otpModel.markOtpAsUsed(validOtp.id);
+    if (result.status === "expired") {
+      return res.status(400).json({
+        error: "SMS OTP code has expired. Please request a new code.",
+        status: "expired",
+      });
+    }
 
-    const user = await userModel.findUserByPhone(phone);
+    if (result.status === "max_attempts_exceeded") {
+      return res.status(400).json({
+        error: "Maximum SMS OTP verification attempts reached. Please request a new OTP code.",
+        attemptsLeft: 0,
+        status: "max_attempts_exceeded",
+      });
+    }
+
+    if (result.status !== "valid") {
+      return res.status(400).json({ error: "Invalid or expired SMS OTP challenge", status: "invalid" });
+    }
+
+    const user = await userModel.findUserByPhone(phone || result.otp?.target || "");
     if (user) {
       await userModel.markPhoneVerified(user.id);
+      await userModel.updateMfaStatus(user.id, true);
     }
 
-    return res.json({ message: "Phone verified successfully" });
+    return res.json({
+      message: "Phone verified and MFA enabled successfully!",
+      phoneVerified: true,
+      mfaEnabled: true,
+      registrationComplete: true,
+    });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || "Failed to verify SMS OTP" });
   }
@@ -168,34 +319,71 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
     const user = await userModel.findUserByEmail(email);
     if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Check account lockout
+    if (user.lockoutUntil && new Date(user.lockoutUntil) > new Date()) {
+      const remainingMins = Math.ceil(
+        (new Date(user.lockoutUntil).getTime() - Date.now()) / (1000 * 60)
+      );
+      return res.status(423).json({
+        error: `Account is temporarily locked due to repeated failed login attempts. Please try again in ${remainingMins} minute(s).`,
+        locked: true,
+        lockoutUntil: user.lockoutUntil,
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      const attempts = await userModel.incrementFailedLoginAttempts(user);
+      if (attempts >= 5) {
+        return res.status(423).json({
+          error: "Account locked for 15 minutes due to 5 consecutive failed login attempts.",
+          locked: true,
+        });
+      }
+      return res.status(401).json({
+        error: `Invalid email or password. Attempt ${attempts} of 5 before account lockout.`,
+        attemptsLeft: 5 - attempts,
+      });
     }
 
+    // Password valid -> Reset failed login counter
+    await userModel.resetFailedLoginAttempts(user.id);
+
+    // If user has MFA enabled -> generate MFA OTP challenge
     if (user.mfaEnabled) {
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
-      await otpModel.createOtp({
+      const challenge = await otpModel.createOtpChallenge({
         userId: user.id,
         type: "login_mfa",
+        channel: "email",
         target: email,
         code,
         expiresAt,
+        maxAttempts: 3,
       });
+
+      console.log(`\n========================================`);
+      console.log(`[SIMULATED EMAIL - LOGIN MFA]`);
+      console.log(`To: ${email}`);
+      console.log(`OTP: ${code}`);
+      console.log(`Challenge ID: ${challenge.challengeId}`);
+      console.log(`========================================\n`);
 
       return res.json({
         mfaRequired: true,
-        message: "MFA code sent to email",
+        method: "email",
+        challengeId: challenge.challengeId,
         target: email,
-        otp: code,
+        message: "MFA required. Code sent to your email.",
       });
     }
 
+    // Standard Login success (no MFA required)
     const sessionExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const newSession = await sessionModel.createSession(user.id, sessionExpiresAt);
 
@@ -211,8 +399,8 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       { expiresIn: "7d" }
     );
 
-    res.cookie("accessToken", accessToken, { httpOnly: true });
-    res.cookie("sessionId", newSession.id, { httpOnly: true });
+    res.cookie("accessToken", accessToken, cookieOptions);
+    res.cookie("sessionId", newSession.id, cookieOptions);
 
     return res.json({
       message: "Login successful",
@@ -230,19 +418,47 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 // 7. POST /api/verify-login-otp
 export const verifyLoginOtp = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email, code } = req.body;
-    if (!email || !code) {
-      return res.status(400).json({ error: "Email and code are required" });
+    const { challengeId, email, code } = req.body;
+    if (!code || (!challengeId && !email)) {
+      return res.status(400).json({ error: "Code and challengeId or email are required" });
     }
 
-    const validOtp = await otpModel.findValidOtp(email, "login_mfa", code);
-    if (!validOtp) {
-      return res.status(400).json({ error: "Invalid or expired MFA OTP code" });
+    const result = await otpModel.verifyOtpChallenge({
+      challengeId,
+      target: email,
+      type: "login_mfa",
+      code,
+    });
+
+    if (result.status === "wrong_code") {
+      return res.status(400).json({
+        error: "Invalid MFA code",
+        attemptsLeft: result.attemptsLeft,
+        status: "wrong_code",
+      });
     }
 
-    await otpModel.markOtpAsUsed(validOtp.id);
+    if (result.status === "expired") {
+      return res.status(400).json({
+        error: "MFA code has expired. Please log in again to receive a new code.",
+        status: "expired",
+      });
+    }
 
-    const user = await userModel.findUserByEmail(email);
+    if (result.status === "max_attempts_exceeded") {
+      return res.status(400).json({
+        error: "Maximum verification attempts reached. Please request a new login code.",
+        attemptsLeft: 0,
+        status: "max_attempts_exceeded",
+      });
+    }
+
+    if (result.status !== "valid") {
+      return res.status(400).json({ error: "Invalid or expired MFA challenge", status: "invalid" });
+    }
+
+    const targetEmail = email || result.otp?.target || "";
+    const user = await userModel.findUserByEmail(targetEmail);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -262,8 +478,8 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<any> 
       { expiresIn: "7d" }
     );
 
-    res.cookie("accessToken", accessToken, { httpOnly: true });
-    res.cookie("sessionId", newSession.id, { httpOnly: true });
+    res.cookie("accessToken", accessToken, cookieOptions);
+    res.cookie("sessionId", newSession.id, cookieOptions);
 
     return res.json({
       message: "MFA login verified successfully",

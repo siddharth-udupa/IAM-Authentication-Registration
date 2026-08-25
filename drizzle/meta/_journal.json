@@ -15,6 +15,13 @@
       "when": 1787580575770,
       "tag": "0001_bitter_hawkeye",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787642867104,
+      "tag": "0002_ancient_blockbuster",
+      "breakpoints": true
     }
   ]
 }

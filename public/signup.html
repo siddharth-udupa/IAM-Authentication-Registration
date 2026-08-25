@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecureID - Sign Up</title>
+  <title>SecureID - Registration & MFA Verification</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="bg-[#F8FAFC] min-h-screen flex items-center justify-center p-4 md:p-6 font-sans text-slate-800 antialiased">
 
-  <!-- Authentication Card -->
-  <main class="w-full max-w-[880px] min-h-[620px] bg-white rounded-2xl border border-slate-200/80 shadow-[0_12px_32px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col md:flex-row relative">
+  <!-- Main Card Container -->
+  <main class="w-full max-w-[900px] min-h-[640px] bg-white rounded-2xl border border-slate-200/80 shadow-[0_12px_32px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col md:flex-row relative">
     
     <!-- Left Branding Panel -->
     <section class="w-full md:w-[34%] bg-gradient-to-br from-[#4579F5] via-[#3B72E9] to-[#2555D6] relative flex flex-col items-center justify-center p-8 text-center text-white overflow-hidden shrink-0">
@@ -28,135 +28,266 @@
         </svg>
       </div>
 
-      <h1 class="relative z-10 text-[26px] font-bold tracking-tight text-white mb-3">
+      <h1 class="relative z-10 text-[26px] font-bold tracking-tight text-white mb-2">
         SecureID
       </h1>
       <p class="relative z-10 text-[14px] text-blue-100/90 font-normal leading-snug">
-        Create your account<br>in seconds.
+        Identity & Access<br>Management
       </p>
+
+      <!-- Multi-step Progress Indicators -->
+      <div class="relative z-10 mt-8 space-y-2.5 text-left text-xs font-medium w-full max-w-[180px]">
+        <div id="stepIndicator1" class="flex items-center text-white font-semibold">
+          <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center mr-2 text-[10px]">1</span>
+          <span>Registration</span>
+        </div>
+        <div id="stepIndicator2" class="flex items-center text-blue-200/60">
+          <span class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center mr-2 text-[10px]">2</span>
+          <span>Email OTP</span>
+        </div>
+        <div id="stepIndicator3" class="flex items-center text-blue-200/60">
+          <span class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center mr-2 text-[10px]">3</span>
+          <span>SMS OTP</span>
+        </div>
+        <div id="stepIndicator4" class="flex items-center text-blue-200/60">
+          <span class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center mr-2 text-[10px]">4</span>
+          <span>MFA Enabled</span>
+        </div>
+      </div>
     </section>
 
-    <!-- Right Signup Panel -->
+    <!-- Right Interaction Panel -->
     <section class="w-full md:w-[66%] bg-white flex flex-col justify-between p-8 sm:p-10 md:p-12">
-      <div class="w-full max-w-[380px] mx-auto my-auto flex flex-col justify-center">
-        
-        <!-- Header -->
-        <div class="text-center mb-5">
-          <h2 class="text-[24px] sm:text-[26px] font-bold text-slate-900 tracking-tight mb-1">
-            Create an Account
-          </h2>
-          <p class="text-[13.5px] text-slate-500 font-normal">
-            Enter your details to register
-          </p>
-        </div>
+      <div class="w-full max-w-[400px] mx-auto my-auto flex flex-col justify-center">
 
-        <!-- Notification Alert Container -->
+        <!-- Global Alert Container -->
         <div id="alertContainer" class="hidden mb-4"></div>
 
-        <!-- Registration Form -->
-        <form id="signupForm" class="space-y-3" novalidate>
-          <!-- Email Field -->
-          <div>
-            <div class="relative flex items-center h-[44px] rounded-lg border border-slate-200 bg-white px-3.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-colors">
-              <svg class="w-4 h-4 text-slate-400 mr-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
-              </svg>
-              <input 
-                type="email" 
-                id="emailInput" 
-                class="w-full bg-transparent text-slate-900 text-[14px] outline-none placeholder-slate-400 font-normal" 
-                placeholder="Email address"
-                required
-              />
-            </div>
+        <!-- STEP 1: Registration Form Screen -->
+        <div id="step1View" class="space-y-4">
+          <div class="text-center mb-4">
+            <h2 class="text-[24px] sm:text-[26px] font-bold text-slate-900 tracking-tight mb-1">
+              Create an Account
+            </h2>
+            <p class="text-[13.5px] text-slate-500 font-normal">
+              Enter your registration details below
+            </p>
           </div>
 
-          <!-- Phone Field (Optional) -->
-          <div>
-            <div class="relative flex items-center h-[44px] rounded-lg border border-slate-200 bg-white px-3.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-colors">
-              <svg class="w-4 h-4 text-slate-400 mr-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-              </svg>
-              <input 
-                type="tel" 
-                id="phoneInput" 
-                class="w-full bg-transparent text-slate-900 text-[14px] outline-none placeholder-slate-400 font-normal" 
-                placeholder="Phone number (optional)"
-              />
-            </div>
-          </div>
-
-          <!-- Password Field -->
-          <div>
-            <div class="relative flex items-center h-[44px] rounded-lg border border-slate-200 bg-white px-3.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-colors">
-              <svg class="w-4 h-4 text-slate-400 mr-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-              </svg>
-              <input 
-                type="password" 
-                id="passwordInput"  
-                class="w-full bg-transparent text-slate-900 text-[14px] outline-none tracking-widest font-bold placeholder-slate-400" 
-                placeholder="Password"
-                required
-              />
-              <button 
-                type="button" 
-                id="togglePassword" 
-                aria-label="Toggle password visibility"
-                class="ml-2 shrink-0 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
-              >
-                <svg id="eyeIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          <form id="signupForm" class="space-y-3" novalidate>
+            <!-- Email -->
+            <div>
+              <div class="relative flex items-center h-[44px] rounded-lg border border-slate-200 bg-white px-3.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-colors">
+                <svg class="w-4 h-4 text-slate-400 mr-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
                 </svg>
+                <input 
+                  type="email" 
+                  id="emailInput" 
+                  class="w-full bg-transparent text-slate-900 text-[14px] outline-none placeholder-slate-400 font-normal" 
+                  placeholder="Email address"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Phone (SMS OTP) -->
+            <div>
+              <div class="relative flex items-center h-[44px] rounded-lg border border-slate-200 bg-white px-3.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-colors">
+                <svg class="w-4 h-4 text-slate-400 mr-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                </svg>
+                <input 
+                  type="tel" 
+                  id="phoneInput" 
+                  class="w-full bg-transparent text-slate-900 text-[14px] outline-none placeholder-slate-400 font-normal" 
+                  placeholder="Mobile phone number (+1234567890)"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div>
+              <div class="relative flex items-center h-[44px] rounded-lg border border-slate-200 bg-white px-3.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-colors">
+                <svg class="w-4 h-4 text-slate-400 mr-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                <input 
+                  type="password" 
+                  id="passwordInput"  
+                  class="w-full bg-transparent text-slate-900 text-[14px] outline-none tracking-widest font-bold placeholder-slate-400" 
+                  placeholder="Password"
+                  required
+                />
+                <button 
+                  type="button" 
+                  id="togglePassword" 
+                  aria-label="Toggle password visibility"
+                  class="ml-2 shrink-0 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                >
+                  <svg id="eyeIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div>
+              <div class="relative flex items-center h-[44px] rounded-lg border border-slate-200 bg-white px-3.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-colors">
+                <svg class="w-4 h-4 text-slate-400 mr-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <input 
+                  type="password" 
+                  id="confirmPasswordInput"  
+                  class="w-full bg-transparent text-slate-900 text-[14px] outline-none tracking-widest font-bold placeholder-slate-400" 
+                  placeholder="Confirm password"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- MFA Checkbox -->
+            <div class="flex items-center text-[13px] pt-1">
+              <label class="flex items-center cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  id="mfaCheckbox"
+                  checked
+                  class="w-[18px] h-[18px] rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#2563EB]"
+                />
+                <span class="ml-2 text-slate-700 font-medium">Require SMS Multi-Factor Authentication (MFA)</span>
+              </label>
+            </div>
+
+            <!-- Submit -->
+            <div class="pt-2">
+              <button 
+                type="submit" 
+                id="submitBtn"
+                class="w-full h-[46px] bg-[#2563EB] hover:bg-[#1D4ED8] active:bg-[#1E40AF] text-white text-[15px] font-semibold rounded-lg shadow-xs transition-colors cursor-pointer flex items-center justify-center"
+              >
+                <span>Register & Continue to OTP</span>
               </button>
             </div>
+          </form>
+
+          <div class="mt-4 text-center text-[13.5px] text-slate-500">
+            <span>Already registered? </span>
+            <a href="/index.html" class="text-[#2563EB] font-medium hover:underline transition-colors">Sign in</a>
+          </div>
+        </div>
+
+        <!-- STEP 2: Email OTP View Screen -->
+        <div id="step2View" class="hidden space-y-4">
+          <div class="text-center mb-3">
+            <div class="w-12 h-12 bg-blue-100 text-[#2563EB] rounded-full flex items-center justify-center mx-auto mb-2">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <h2 class="text-[22px] font-bold text-slate-900">Email OTP Verification</h2>
+            <p id="emailOtpTargetText" class="text-xs text-slate-500 mt-1">An OTP code has been sent to your email.</p>
+            <p class="text-[11px] text-blue-600 font-medium mt-1">(Check your backend terminal console for simulated OTP)</p>
           </div>
 
-          <!-- Confirm Password Field -->
-          <div>
-            <div class="relative flex items-center h-[44px] rounded-lg border border-slate-200 bg-white px-3.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-colors">
-              <svg class="w-4 h-4 text-slate-400 mr-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
+          <div id="emailOtpAlert" class="hidden"></div>
+
+          <form id="emailOtpForm" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1 text-center">Enter 6-Digit Email OTP</label>
               <input 
-                type="password" 
-                id="confirmPasswordInput"  
-                class="w-full bg-transparent text-slate-900 text-[14px] outline-none tracking-widest font-bold placeholder-slate-400" 
-                placeholder="Confirm password"
+                type="text" 
+                id="emailOtpInput" 
+                maxlength="6"
+                placeholder="123456"
+                class="w-full text-center tracking-[0.4em] font-mono text-xl py-2.5 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
                 required
               />
             </div>
-          </div>
 
-          <!-- MFA Enable Toggle Checkbox -->
-          <div class="flex items-center text-[13px] pt-1">
-            <label class="flex items-center cursor-pointer select-none">
-              <input 
-                type="checkbox" 
-                id="mfaCheckbox"
-                class="w-[18px] h-[18px] rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-[#2563EB]"
-              />
-              <span class="ml-2 text-slate-700 font-medium">Enable Two-Factor Authentication (MFA)</span>
-            </label>
-          </div>
-
-          <!-- Primary Submit Button -->
-          <div class="pt-2">
             <button 
               type="submit" 
-              id="submitBtn"
-              class="w-full h-[46px] bg-[#2563EB] hover:bg-[#1D4ED8] active:bg-[#1E40AF] text-white text-[15px] font-semibold rounded-lg shadow-xs transition-colors cursor-pointer flex items-center justify-center"
+              id="verifyEmailOtpBtn"
+              class="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
             >
-              <span>Sign Up</span>
+              Verify Email OTP
             </button>
-          </div>
-        </form>
+          </form>
 
-        <!-- Login Link -->
-        <div class="mt-6 text-center text-[13.5px] text-slate-500">
-          <span>Already have an account? </span>
-          <a href="/index.html" class="text-[#2563EB] font-medium hover:underline transition-colors">Sign in</a>
+          <div class="flex items-center justify-between text-xs pt-1">
+            <button type="button" id="resendEmailOtpBtn" class="text-blue-600 hover:underline font-medium">Resend Email OTP</button>
+            <button type="button" id="backToFormBtn1" class="text-slate-500 hover:underline">Change Email</button>
+          </div>
+        </div>
+
+        <!-- STEP 3: SMS OTP View Screen -->
+        <div id="step3View" class="hidden space-y-4">
+          <div class="text-center mb-3">
+            <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-2">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <h2 class="text-[22px] font-bold text-slate-900">SMS OTP Verification</h2>
+            <p id="smsOtpTargetText" class="text-xs text-slate-500 mt-1">An SMS OTP code has been sent to your mobile phone.</p>
+            <p class="text-[11px] text-amber-600 font-medium mt-1">(Check your backend terminal console for simulated SMS)</p>
+          </div>
+
+          <div id="smsOtpAlert" class="hidden"></div>
+
+          <form id="smsOtpForm" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1 text-center">Enter 6-Digit SMS OTP</label>
+              <input 
+                type="text" 
+                id="smsOtpInput" 
+                maxlength="6"
+                placeholder="654321"
+                class="w-full text-center tracking-[0.4em] font-mono text-xl py-2.5 rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                required
+              />
+            </div>
+
+            <button 
+              type="submit" 
+              id="verifySmsOtpBtn"
+              class="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+            >
+              Verify SMS OTP & Complete MFA
+            </button>
+          </form>
+
+          <div class="flex items-center justify-between text-xs pt-1">
+            <button type="button" id="resendSmsOtpBtn" class="text-blue-600 hover:underline font-medium">Resend SMS OTP</button>
+            <span id="smsAttemptsBadge" class="text-slate-400 font-mono text-[11px]">3 attempts remaining</span>
+          </div>
+        </div>
+
+        <!-- STEP 4 & 5: MFA Complete / Success Screen -->
+        <div id="step4View" class="hidden text-center space-y-4">
+          <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <h2 class="text-[24px] font-bold text-slate-900">Registration Success!</h2>
+          <p class="text-sm text-slate-600">
+            Email & SMS OTP verified successfully.<br>
+            <span class="inline-block mt-2 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200">MFA / Two-Factor Authentication Enabled</span>
+          </p>
+
+          <div class="pt-4">
+            <a 
+              href="/index.html" 
+              class="inline-flex items-center justify-center w-full h-[46px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold rounded-lg transition-colors shadow-xs"
+            >
+              Proceed to Sign In
+            </a>
+          </div>
         </div>
 
       </div>

@@ -3,6 +3,7 @@
  */
 import { authState, SCREENS } from '../state.js';
 import { Icons } from '../icons.js';
+import { api } from '../api.js';
 
 export function formatTimer(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -16,7 +17,7 @@ export function renderOtpView(state) {
   const isExpired = currentScreen === SCREENS.EMAIL_OTP_EXPIRED;
 
   const otpDigits = state.otpDigits || ['', '', '', '', '', ''];
-  const email = state.email || 'priya.sharma@email.com';
+  const email = state.email || 'student@example.com';
 
   return `
     <div class="w-full max-w-[400px] mx-auto flex flex-col justify-center animate-fade-in relative">
@@ -77,12 +78,12 @@ export function renderOtpView(state) {
       <div class="min-h-[44px] flex flex-col items-center justify-center text-center text-[12px] sm:text-[12.5px] mb-3">
         ${isIncorrect ? `
           <div class="text-error font-medium space-y-0.5 animate-slide-down">
-            <p>Incorrect code. Please try again.</p>
+            <p>${state.otpErrorMessage || 'Incorrect code. Please try again.'}</p>
             <p>You have ${state.attemptsLeft} attempts left.</p>
           </div>
         ` : isExpired ? `
           <div class="text-error font-medium animate-slide-down">
-            <p>Code expired.</p>
+            <p>Code expired. Request a new code.</p>
           </div>
         ` : `
           <div class="text-muted">
@@ -211,29 +212,60 @@ export function attachOtpEvents(container, state) {
   });
 
   if (resendBtn) {
-    resendBtn.addEventListener('click', () => {
-      alert(`A new 6-digit verification code has been sent to ${state.email || 'your email'}.`);
+    resendBtn.addEventListener('click', async () => {
+      const currentEmail = authState.getState().email || 'student@example.com';
+      const res = await api.sendEmailOtp(currentEmail);
+      if (res.success && res.data.challengeId) {
+        authState.update({ challengeId: res.data.challengeId }, false);
+        alert(`A new 6-digit verification code has been sent to ${currentEmail}. Check server console.`);
+      }
       authState.setScreen(SCREENS.EMAIL_OTP);
     });
   }
 
   if (didntReceiveBtn) {
     didntReceiveBtn.addEventListener('click', () => {
-      alert('Please check your spam folder or go back to choose a different verification method.');
+      alert('Please check your spam folder or console logs for the simulated OTP code.');
     });
   }
 
-  function checkOtpSubmission() {
-    const digits = authState.getState().otpDigits.join('');
+  async function checkOtpSubmission() {
+    const currentState = authState.getState();
+    const digits = currentState.otpDigits.join('');
     if (digits.length === 6) {
-      if (digits === '123456' || digits === '482913') {
-        alert('Verification successful! Logging in to SecureID...');
-        authState.reset();
+      const challengeId = currentState.challengeId;
+      const email = currentState.email;
+
+      // Verify OTP challenge with backend
+      const res = await api.verifyEmailOtp({ challengeId, email, code: digits });
+
+      if (res.success) {
+        alert('Verification successful! Access granted.');
+        window.location.href = '/dashboard.html';
       } else {
-        const currentAttempts = authState.getState().attemptsLeft;
-        const newAttempts = Math.max(0, currentAttempts - 1);
-        authState.update({ attemptsLeft: newAttempts }, false);
-        authState.setScreen(SCREENS.EMAIL_OTP_ERROR);
+        if (res.data?.status === 'INVALID_OTP' || res.data?.status === 'wrong_code') {
+          const attemptsLeft = res.data.attemptsRemaining ?? Math.max(0, currentState.attemptsLeft - 1);
+          authState.update({
+            attemptsLeft,
+            otpErrorMessage: 'Incorrect code. Please try again.'
+          }, false);
+          authState.setScreen(SCREENS.EMAIL_OTP_ERROR);
+        } else if (res.data?.status === 'OTP_EXPIRED') {
+          authState.setScreen(SCREENS.EMAIL_OTP_EXPIRED);
+        } else if (res.data?.status === 'MAX_ATTEMPTS_EXCEEDED') {
+          authState.update({
+            attemptsLeft: 0,
+            otpErrorMessage: 'Too many incorrect attempts. This verification challenge has expired. Request a new code.'
+          }, false);
+          authState.setScreen(SCREENS.EMAIL_OTP_ERROR);
+        } else {
+          const attemptsLeft = res.data.attemptsRemaining ?? Math.max(0, currentState.attemptsLeft - 1);
+          authState.update({
+            attemptsLeft,
+            otpErrorMessage: res.error || 'Verification failed. Please try again.'
+          }, false);
+          authState.setScreen(SCREENS.EMAIL_OTP_ERROR);
+        }
       }
     }
   }

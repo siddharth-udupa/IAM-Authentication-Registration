@@ -3,6 +3,7 @@
  */
 import { authState, SCREENS } from '../state.js';
 import { Icons } from '../icons.js';
+import { api } from '../api.js';
 
 export function renderLoginView(state) {
   const isError = state.currentScreen === SCREENS.LOGIN_ERROR;
@@ -178,7 +179,6 @@ export function attachLoginEvents(container, state) {
 
   if (emailInput) {
     emailInput.addEventListener('input', (e) => {
-      // Update state silently without destroying input DOM
       authState.update({ email: e.target.value }, false);
       if (authState.getState().currentScreen === SCREENS.LOGIN_ERROR) {
         clearErrorStateInDom();
@@ -188,7 +188,6 @@ export function attachLoginEvents(container, state) {
 
   if (passwordInput) {
     passwordInput.addEventListener('input', (e) => {
-      // Update state silently without destroying input DOM
       authState.update({ password: e.target.value }, false);
       if (authState.getState().currentScreen === SCREENS.LOGIN_ERROR) {
         clearErrorStateInDom();
@@ -219,17 +218,40 @@ export function attachLoginEvents(container, state) {
   }
 
   if (loginForm) {
-    loginForm.addEventListener('submit', (e) => {
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const currEmail = (emailInput ? emailInput.value : authState.getState().email).trim();
       const currPassword = (passwordInput ? passwordInput.value : authState.getState().password).trim();
 
-      if (!currEmail || !currPassword || currEmail.includes('invalid') || currPassword.includes('invalid')) {
-        authState.update({ email: currEmail, password: currPassword }, false);
+      if (!currEmail || !currPassword) {
+        authState.update({
+          email: currEmail,
+          password: currPassword,
+          loginErrorMessage: 'Please enter both email and password.'
+        }, false);
         authState.setScreen(SCREENS.LOGIN_ERROR);
+        return;
+      }
+
+      const res = await api.login({ email: currEmail, password: currPassword });
+      if (res.success) {
+        if (res.data.mfaRequired) {
+          authState.update({
+            email: currEmail,
+            password: currPassword,
+            challengeId: res.data.challengeId
+          }, false);
+          authState.setScreen(SCREENS.CHOOSE_METHOD);
+        } else {
+          window.location.href = '/dashboard.html';
+        }
       } else {
-        authState.update({ email: currEmail, password: currPassword }, false);
-        authState.setScreen(SCREENS.CHOOSE_METHOD);
+        authState.update({
+          email: currEmail,
+          password: currPassword,
+          loginErrorMessage: res.error || 'Invalid email or password. Please try again.'
+        }, false);
+        authState.setScreen(SCREENS.LOGIN_ERROR);
       }
     });
   }

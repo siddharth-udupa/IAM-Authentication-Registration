@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (res.success) {
-          if (res.data.nextStep === 'sms_otp') {
+          if (res.data.nextStep === 'sms_otp' || res.data.status === 'SMS_VERIFICATION_REQUIRED') {
             activeRegistration.smsChallengeId = res.data.challengeId;
             smsOtpTargetText.textContent = `An SMS OTP code has been sent to ${res.data.phone || activeRegistration.phone}.`;
             hideAlert(smsOtpAlert);
@@ -171,13 +171,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateIndicators(4);
           }
         } else {
-          // Handle specific error states required by plan
-          if (res.data?.status === 'wrong_code') {
-            const attemptsLeft = res.data.attemptsLeft ?? 'few';
+          const status = res.data?.status;
+          if (status === 'INVALID_OTP' || status === 'wrong_code') {
+            const attemptsLeft = res.data.attemptsRemaining ?? 'few';
             showAlert(emailOtpAlert, `Email OTP: Wrong code entered. (${attemptsLeft} attempt(s) remaining)`, 'error');
-          } else if (res.data?.status === 'expired') {
+          } else if (status === 'OTP_EXPIRED' || status === 'expired') {
             showAlert(emailOtpAlert, 'Email OTP: Expired! Please click "Resend Email OTP" below.', 'error');
-          } else if (res.data?.status === 'max_attempts_exceeded') {
+          } else if (status === 'MAX_ATTEMPTS_EXCEEDED' || status === 'max_attempts_exceeded') {
             showAlert(emailOtpAlert, 'Email OTP: Maximum attempts exceeded! Please request a new OTP.', 'error');
           } else {
             showAlert(emailOtpAlert, res.error || 'Email verification failed.', 'error');
@@ -239,11 +239,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           step4View.classList.remove('hidden');
           updateIndicators(4);
         } else {
-          if (res.data?.status === 'wrong_code') {
-            const attemptsLeft = res.data.attemptsLeft ?? 0;
+          const status = res.data?.status;
+          if (status === 'INVALID_OTP' || status === 'wrong_code') {
+            const attemptsLeft = res.data.attemptsRemaining ?? 0;
             smsAttemptsBadge.textContent = `${attemptsLeft} attempt(s) remaining`;
             showAlert(smsOtpAlert, `SMS OTP: Wrong code entered. (${attemptsLeft} attempt(s) left)`, 'error');
-          } else if (res.data?.status === 'max_attempts_exceeded') {
+          } else if (status === 'MAX_ATTEMPTS_EXCEEDED' || status === 'max_attempts_exceeded') {
             smsAttemptsBadge.textContent = '0 attempts remaining';
             verifySmsOtpBtn.disabled = true;
             showAlert(
@@ -251,7 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               'SMS OTP: Maximum attempts reached! Button disabled. Click "Resend SMS OTP" to try again.',
               'error'
             );
-          } else if (res.data?.status === 'expired') {
+          } else if (status === 'OTP_EXPIRED' || status === 'expired') {
             showAlert(smsOtpAlert, 'SMS OTP: Code expired. Please request a new code.', 'error');
           } else {
             showAlert(smsOtpAlert, res.error || 'SMS verification failed.', 'error');

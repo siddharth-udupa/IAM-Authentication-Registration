@@ -33,7 +33,7 @@ export const otps = pgTable("otps", {
   type: text("type").notNull(), // 'email_verify' | 'phone_verify' | 'login_mfa'
   channel: text("channel").default("email").notNull(), // 'email' | 'sms'
   target: text("target").notNull(), // email address or phone number
-  code: text("code").notNull(), // stored code or code representation
+  otpHash: text("otp_hash").notNull(), // bcrypt hash of the 6-digit OTP code
   expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
   used: boolean("used").default(false).notNull(),
   attempts: integer("attempts").default(0).notNull(),

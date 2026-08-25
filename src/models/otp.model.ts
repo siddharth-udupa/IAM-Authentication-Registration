@@ -2,6 +2,7 @@ import { db } from "../db/db.js";
 import { otps, Otp } from "../db/schema.js";
 import { eq, and, desc } from "drizzle-orm";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 
 export interface VerificationResult {
   status: "valid" | "wrong_code" | "expired" | "max_attempts_exceeded" | "invalid";
@@ -9,17 +10,33 @@ export interface VerificationResult {
   otp?: Otp;
 }
 
+/**
+ * Generates a cryptographically secure 6-digit OTP string.
+ */
+export function generateSecureOtpCode(): string {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+/**
+ * Creates a backend-controlled OTP Challenge.
+ * The OTP is hashed using bcrypt before saving.
+ */
 export const createOtpChallenge = async (data: {
   userId?: string | null;
   type: string;
   channel: "email" | "sms";
   target: string;
-  code: string;
+  code?: string;
   expiresAt: Date;
   maxAttempts?: number;
 }): Promise<{ otp: Otp; rawCode: string; challengeId: string }> => {
   const challengeId = crypto.randomUUID();
   const maxAttempts = data.maxAttempts || 3;
+  const rawCode = data.code || generateSecureOtpCode();
+
+  // Hash OTP code securely with bcrypt
+  const salt = await bcrypt.genSalt(10);
+  const otpHash = await bcrypt.hash(rawCode, salt);
 
   const [newOtp] = await db
     .insert(otps)
@@ -29,7 +46,7 @@ export const createOtpChallenge = async (data: {
       type: data.type,
       channel: data.channel,
       target: data.target,
-      code: data.code,
+      otpHash,
       expiresAt: data.expiresAt,
       attempts: 0,
       maxAttempts,
@@ -37,9 +54,12 @@ export const createOtpChallenge = async (data: {
     })
     .returning();
 
-  return { otp: newOtp, rawCode: data.code, challengeId };
+  return { otp: newOtp, rawCode, challengeId };
 };
 
+/**
+ * Verifies a submitted OTP code against stored challenge.
+ */
 export const verifyOtpChallenge = async (params: {
   challengeId?: string;
   target?: string;
@@ -72,8 +92,10 @@ export const verifyOtpChallenge = async (params: {
     return { status: "expired", otp: record };
   }
 
-  // Verify code
-  if (record.code !== params.code.trim()) {
+  // Compare submitted code against bcrypt hash
+  const isMatch = await bcrypt.compare(params.code.trim(), record.otpHash);
+
+  if (!isMatch) {
     const updatedAttempts = record.attempts + 1;
     await db
       .update(otps)
@@ -113,7 +135,7 @@ export const createOtp = async (data: {
   userId?: string | null;
   type: string;
   target: string;
-  code: string;
+  code?: string;
   expiresAt: Date;
   channel?: "email" | "sms";
 }): Promise<Otp> => {
@@ -127,5 +149,3 @@ export const createOtp = async (data: {
   });
   return result.otp;
 };
-
-

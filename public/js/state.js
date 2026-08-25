@@ -22,6 +22,7 @@ class AuthState {
       currentScreen: SCREENS.LOGIN_DEFAULT,
       email: '',
       password: '',
+      challengeId: '',
       rememberMe: false,
       selectedMethod: 'email', // 'email' | 'sms' | 'authenticator'
       otpDigits: ['', '', '', '', '', ''],

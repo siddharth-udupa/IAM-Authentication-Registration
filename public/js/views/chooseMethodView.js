@@ -1,16 +1,18 @@
 /**
  * Choose Verification Method View Renderer
+ * Supports Email OTP and SMS OTP channels for Login MFA with single-click prevention.
  */
 import { authState, SCREENS } from '../state.js';
 import { Icons } from '../icons.js';
+import { api } from '../api.js';
 
 export function renderChooseMethodView(state) {
-  const selected = state.selectedMethod;
+  const selected = state.selectedMethod || 'email';
 
   const cardStyle = (methodKey) => {
     const isSelected = selected === methodKey;
     if (isSelected) {
-      return 'border-[#2445D8] bg-[#F5F8FF] shadow-2xs';
+      return 'border-[#2445D8] bg-[#F5F8FF] shadow-2xs ring-1 ring-[#2445D8]/30';
     }
     return 'border-subtle bg-white hover:border-slate-300 hover:bg-slate-50/50';
   };
@@ -54,7 +56,7 @@ export function renderChooseMethodView(state) {
           Verify your identity
         </h1>
         <p class="text-[12px] sm:text-[13px] text-muted font-normal">
-          Choose a method to continue
+          Select an OTP verification channel to continue
         </p>
       </div>
 
@@ -64,6 +66,7 @@ export function renderChooseMethodView(state) {
         <!-- Email OTP Card -->
         <div 
           data-method="email"
+          id="emailCardBtn"
           class="verification-card flex items-center justify-between p-3.5 sm:p-4 rounded-[10px] border cursor-pointer transition-all ${cardStyle('email')}"
         >
           <div class="flex items-center gap-3.5">
@@ -72,7 +75,7 @@ export function renderChooseMethodView(state) {
             </div>
             <div>
               <h3 class="text-[13.5px] font-semibold text-dark leading-tight">Email OTP</h3>
-              <p class="text-[11.5px] text-muted font-normal mt-0.5">Receive a code on your email</p>
+              <p class="text-[11.5px] text-muted font-normal mt-0.5">Receive a code on your email address</p>
             </div>
           </div>
           <div class="shrink-0 ml-3">
@@ -83,6 +86,7 @@ export function renderChooseMethodView(state) {
         <!-- SMS OTP Card -->
         <div 
           data-method="sms"
+          id="smsCardBtn"
           class="verification-card flex items-center justify-between p-3.5 sm:p-4 rounded-[10px] border cursor-pointer transition-all ${cardStyle('sms')}"
         >
           <div class="flex items-center gap-3.5">
@@ -91,30 +95,11 @@ export function renderChooseMethodView(state) {
             </div>
             <div>
               <h3 class="text-[13.5px] font-semibold text-dark leading-tight">SMS OTP</h3>
-              <p class="text-[11.5px] text-muted font-normal mt-0.5">Receive a code on your mobile</p>
+              <p class="text-[11.5px] text-muted font-normal mt-0.5">Receive a code on your mobile phone</p>
             </div>
           </div>
           <div class="shrink-0 ml-3">
             ${radioIndicator('sms')}
-          </div>
-        </div>
-
-        <!-- Authenticator App Card -->
-        <div 
-          data-method="authenticator"
-          class="verification-card flex items-center justify-between p-3.5 sm:p-4 rounded-[10px] border cursor-pointer transition-all ${cardStyle('authenticator')}"
-        >
-          <div class="flex items-center gap-3.5">
-            <div class="w-10 h-10 rounded-full icon-bg-gray flex items-center justify-center shrink-0">
-              ${Icons.authenticator('w-5 h-5')}
-            </div>
-            <div>
-              <h3 class="text-[13.5px] font-semibold text-dark leading-tight">Authenticator App</h3>
-              <p class="text-[11.5px] text-muted font-normal mt-0.5">Use code from authenticator app</p>
-            </div>
-          </div>
-          <div class="shrink-0 ml-3">
-            ${radioIndicator('authenticator')}
           </div>
         </div>
 
@@ -124,9 +109,9 @@ export function renderChooseMethodView(state) {
       <button 
         type="button" 
         id="continueMethodBtn"
-        class="w-full h-[44px] bg-[#2445D8] hover:bg-[#1D3AB8] active:bg-[#17309A] text-white text-[14px] font-semibold rounded-lg shadow-xs transition-colors cursor-pointer flex items-center justify-center"
+        class="w-full h-[44px] bg-[#2445D8] hover:bg-[#1D3AB8] active:bg-[#17309A] text-white text-[14px] font-semibold rounded-lg shadow-xs transition-colors cursor-pointer flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
       >
-        Continue
+        <span>Continue</span>
       </button>
     </div>
   `;
@@ -137,23 +122,81 @@ export function attachChooseMethodEvents(container, state) {
   const cards = container.querySelectorAll('.verification-card');
   const continueBtn = container.querySelector('#continueMethodBtn');
 
+  let isSubmitting = false;
+
+  function disableInteractions() {
+    isSubmitting = true;
+    if (continueBtn) {
+      continueBtn.disabled = true;
+      continueBtn.classList.add('opacity-50', 'pointer-events-none');
+      continueBtn.innerHTML = `<span>Sending Code...</span>`;
+    }
+    cards.forEach((card) => {
+      card.classList.add('pointer-events-none', 'opacity-70');
+    });
+  }
+
+  function enableInteractions() {
+    isSubmitting = false;
+    if (continueBtn) {
+      continueBtn.disabled = false;
+      continueBtn.classList.remove('opacity-50', 'pointer-events-none');
+      continueBtn.innerHTML = `<span>Continue</span>`;
+    }
+    cards.forEach((card) => {
+      card.classList.remove('pointer-events-none', 'opacity-70');
+    });
+  }
+
   if (backBtn) {
     backBtn.addEventListener('click', () => {
+      if (isSubmitting) return;
       authState.setScreen(SCREENS.LOGIN_DEFAULT);
     });
   }
 
-  cards.forEach(card => {
+  cards.forEach((card) => {
     card.addEventListener('click', () => {
+      if (isSubmitting) return;
       const method = card.getAttribute('data-method');
-      authState.update({ selectedMethod: method });
+      authState.update({ selectedMethod: method }, true);
     });
   });
 
   if (continueBtn) {
-    continueBtn.addEventListener('click', () => {
-      // Transition to Email OTP view
-      authState.setScreen(SCREENS.EMAIL_OTP);
+    continueBtn.addEventListener('click', async () => {
+      if (isSubmitting) return;
+      disableInteractions();
+
+      const currentState = authState.getState();
+      const selected = currentState.selectedMethod || 'email';
+      const email = currentState.email || 'student@example.com';
+
+      try {
+        let res;
+        if (selected === 'sms') {
+          // Trigger SMS OTP for Login MFA
+          res = await api.sendSmsOtp(email, 'login_mfa');
+        } else {
+          // Trigger Email OTP for Login MFA
+          res = await api.sendEmailOtp(email, 'login_mfa');
+        }
+
+        if (res.success && res.data.challengeId) {
+          authState.update({
+            challengeId: res.data.challengeId,
+            selectedMethod: selected,
+            target: res.data.target || email,
+          }, false);
+          authState.setScreen(SCREENS.EMAIL_OTP);
+        } else {
+          alert(res.error || 'Failed to send OTP code. Please try again.');
+          enableInteractions();
+        }
+      } catch (err) {
+        alert('Failed to send OTP code. Please check server logs.');
+        enableInteractions();
+      }
     });
   }
 }

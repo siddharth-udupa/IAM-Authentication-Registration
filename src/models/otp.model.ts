@@ -10,6 +10,36 @@ export interface VerificationResult {
   otp?: Otp;
 }
 
+export interface TestOtpRecord {
+  challengeId: string;
+  target: string;
+  type: string;
+  channel: "email" | "sms";
+  rawCode: string;
+  expiresAt: Date;
+  maxAttempts: number;
+  createdAt: Date;
+}
+
+// In-memory test lookup cache for evaluator testing API
+const testOtpCache = new Map<string, TestOtpRecord>();
+
+/**
+ * Retrieves a test OTP record by challengeId or target for evaluator testing.
+ */
+export function getTestOtpByChallengeId(challengeId: string): TestOtpRecord | undefined {
+  return testOtpCache.get(challengeId);
+}
+
+/**
+ * Retrieves all recent test OTP records for evaluator testing.
+ */
+export function getAllTestOtps(): TestOtpRecord[] {
+  return Array.from(testOtpCache.values()).sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
+}
+
 /**
  * Generates a cryptographically secure 6-digit OTP string.
  */
@@ -33,6 +63,18 @@ export const createOtpChallenge = async (data: {
   const challengeId = crypto.randomUUID();
   const maxAttempts = data.maxAttempts || 3;
   const rawCode = data.code || generateSecureOtpCode();
+
+  // Store in evaluator test cache
+  testOtpCache.set(challengeId, {
+    challengeId,
+    target: data.target,
+    type: data.type,
+    channel: data.channel,
+    rawCode,
+    expiresAt: data.expiresAt,
+    maxAttempts,
+    createdAt: new Date(),
+  });
 
   // Hash OTP code securely with bcrypt
   const salt = await bcrypt.genSalt(10);

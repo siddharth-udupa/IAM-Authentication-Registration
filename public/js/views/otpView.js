@@ -1,5 +1,5 @@
 /**
- * Email OTP View Renderer (Production Authentication Flow - Smooth Focus Preserved)
+ * OTP View Renderer (Supports Email and SMS Verification with Single-Click Prevention)
  */
 import { authState, SCREENS } from '../state.js';
 import { Icons } from '../icons.js';
@@ -16,8 +16,15 @@ export function renderOtpView(state) {
   const isIncorrect = currentScreen === SCREENS.EMAIL_OTP_ERROR;
   const isExpired = currentScreen === SCREENS.EMAIL_OTP_EXPIRED;
 
+  const isSms = state.selectedMethod === 'sms';
+  const headerTitle = isSms ? 'SMS Verification' : 'Email Verification';
+  const headerIcon = isSms ? Icons.sms('w-7 h-7') : Icons.mail('w-7 h-7');
+  const headerIconBg = isSms ? 'icon-bg-green' : 'icon-bg-blue';
+  const targetLabel = isSms 
+    ? (state.target || state.phone || 'your mobile phone')
+    : (state.target || state.email || 'student@example.com');
+
   const otpDigits = state.otpDigits || ['', '', '', '', '', ''];
-  const email = state.email || 'student@example.com';
 
   return `
     <div class="w-full max-w-[400px] mx-auto flex flex-col justify-center animate-fade-in relative">
@@ -31,21 +38,21 @@ export function renderOtpView(state) {
         ${Icons.arrowLeft('w-4 h-4')}
       </button>
 
-      <!-- Header Icon (Outline Blue Mail icon in pale blue circular background) -->
+      <!-- Header Icon -->
       <div class="flex justify-center mb-4 pt-4">
-        <div class="w-[56px] h-[56px] rounded-full icon-bg-blue flex items-center justify-center">
-          ${Icons.mail('w-7 h-7')}
+        <div class="w-[56px] h-[56px] rounded-full ${headerIconBg} flex items-center justify-center">
+          ${headerIcon}
         </div>
       </div>
 
       <!-- Header Title & Description -->
       <div class="text-center mb-6">
         <h1 class="text-[20px] sm:text-[22px] font-bold text-dark tracking-tight mb-1">
-          Email Verification
+          ${headerTitle}
         </h1>
         <p class="text-[12px] sm:text-[13px] text-muted font-normal leading-relaxed">
           Enter the 6-digit code sent to<br>
-          <strong class="font-semibold text-dark break-all">${email}</strong>
+          <strong class="font-semibold text-dark break-all">${targetLabel}</strong>
         </p>
       </div>
 
@@ -105,7 +112,7 @@ export function renderOtpView(state) {
           <button 
             type="button" 
             id="resendCodeBtn"
-            class="text-[#2445D8] font-semibold hover:underline text-[13px] cursor-pointer bg-transparent border-0 p-0"
+            class="text-[#2445D8] font-semibold hover:underline text-[13px] cursor-pointer bg-transparent border-0 p-0 disabled:opacity-50 disabled:pointer-events-none"
           >
             Resend code
           </button>
@@ -122,7 +129,7 @@ export function renderOtpView(state) {
             <button 
               type="button" 
               id="resendCodeBtn"
-              class="text-[#2445D8] font-semibold hover:underline text-[13px] cursor-pointer bg-transparent border-0 p-0"
+              class="text-[#2445D8] font-semibold hover:underline text-[13px] cursor-pointer bg-transparent border-0 p-0 disabled:opacity-50 disabled:pointer-events-none"
             >
               Resend code
             </button>
@@ -149,8 +156,11 @@ export function attachOtpEvents(container, state) {
   const resendBtn = container.querySelector('#resendCodeBtn');
   const didntReceiveBtn = container.querySelector('#didntReceiveCodeBtn');
 
+  let isVerifying = false;
+
   if (backBtn) {
     backBtn.addEventListener('click', () => {
+      if (isVerifying) return;
       authState.setScreen(SCREENS.CHOOSE_METHOD);
     });
   }
@@ -158,6 +168,7 @@ export function attachOtpEvents(container, state) {
   // OTP Input Navigation & Focus Management
   otpBoxes.forEach((box, index) => {
     box.addEventListener('input', (e) => {
+      if (isVerifying) return;
       const value = e.target.value;
       if (!/^\d*$/.test(value)) {
         box.value = '';
@@ -175,6 +186,7 @@ export function attachOtpEvents(container, state) {
     });
 
     box.addEventListener('keydown', (e) => {
+      if (isVerifying) return;
       if (e.key === 'Backspace') {
         if (!box.value && index > 0) {
           otpBoxes[index - 1].focus();
@@ -186,6 +198,7 @@ export function attachOtpEvents(container, state) {
     });
 
     box.addEventListener('paste', (e) => {
+      if (isVerifying) return;
       e.preventDefault();
       const pastedData = (e.clipboardData || window.clipboardData).getData('text').trim();
       if (/^\d{1,6}$/.test(pastedData)) {
@@ -213,36 +226,74 @@ export function attachOtpEvents(container, state) {
 
   if (resendBtn) {
     resendBtn.addEventListener('click', async () => {
-      const currentEmail = authState.getState().email || 'student@example.com';
-      const res = await api.sendEmailOtp(currentEmail);
+      if (isVerifying) return;
+      resendBtn.disabled = true;
+      resendBtn.classList.add('opacity-50', 'pointer-events-none');
+      resendBtn.textContent = 'Resending...';
+
+      const currentState = authState.getState();
+      const currentEmail = currentState.email || 'student@example.com';
+      const isSms = currentState.selectedMethod === 'sms';
+
+      let res;
+      if (isSms) {
+        res = await api.sendSmsOtp(currentEmail, 'login_mfa');
+      } else {
+        res = await api.sendEmailOtp(currentEmail, 'login_mfa');
+      }
+
       if (res.success && res.data.challengeId) {
         authState.update({ challengeId: res.data.challengeId }, false);
-        alert(`A new 6-digit verification code has been sent to ${currentEmail}. Check server console.`);
+        alert(`A new 6-digit verification code has been sent. Check server console.`);
+      } else {
+        alert(res.error || 'Failed to resend code.');
       }
+
+      resendBtn.disabled = false;
+      resendBtn.classList.remove('opacity-50', 'pointer-events-none');
+      resendBtn.textContent = 'Resend code';
       authState.setScreen(SCREENS.EMAIL_OTP);
     });
   }
 
   if (didntReceiveBtn) {
     didntReceiveBtn.addEventListener('click', () => {
-      alert('Please check your spam folder or console logs for the simulated OTP code.');
+      alert('Please check your server console logs for the simulated OTP code.');
     });
   }
 
   async function checkOtpSubmission() {
+    if (isVerifying) return;
     const currentState = authState.getState();
     const digits = currentState.otpDigits.join('');
+
     if (digits.length === 6) {
+      isVerifying = true;
+      // Disable inputs during verification to prevent double clicks
+      otpBoxes.forEach((b) => {
+        b.disabled = true;
+        b.classList.add('opacity-70', 'pointer-events-none');
+      });
+
       const challengeId = currentState.challengeId;
       const email = currentState.email;
 
       // Verify OTP challenge with backend
-      const res = await api.verifyEmailOtp({ challengeId, email, code: digits });
+      let res = await api.verifyLoginOtp({ challengeId, email, code: digits });
+      if (!res.success) {
+        res = await api.verifyEmailOtp({ challengeId, email, code: digits });
+      }
 
       if (res.success) {
         alert('Verification successful! Access granted.');
         window.location.href = '/dashboard.html';
       } else {
+        isVerifying = false;
+        otpBoxes.forEach((b) => {
+          b.disabled = false;
+          b.classList.remove('opacity-70', 'pointer-events-none');
+        });
+
         if (res.data?.status === 'INVALID_OTP' || res.data?.status === 'wrong_code') {
           const attemptsLeft = res.data.attemptsRemaining ?? Math.max(0, currentState.attemptsLeft - 1);
           authState.update({

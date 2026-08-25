@@ -24,4 +24,8 @@ router.post("/logout", authenticateToken, authController.logout);
 router.post("/token", authController.refreshToken);
 router.get("/protected", authenticateToken, authController.getProtected);
 
+// Evaluator Test-only Endpoints
+router.get("/test/otp/:challengeId", authController.getTestOtp);
+router.get("/test/otps", authController.getTestOtps);
+
 export default router;

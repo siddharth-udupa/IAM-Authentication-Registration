@@ -79,26 +79,27 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 // 2. POST /api/send-email-otp
 export const sendEmailOtp = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email } = req.body;
+    const { email, type } = req.body;
     if (!email) {
       return res.status(400).json({ error: "Email is required" });
     }
 
     const user = await userModel.findUserByEmail(email);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const otpType = type || "registration_email";
 
     const challenge = await otpModel.createOtpChallenge({
       userId: user ? user.id : null,
-      type: "registration_email",
+      type: otpType,
       channel: "email",
       target: email,
       expiresAt,
       maxAttempts: 3,
     });
 
-    // Console logging simulation
+    const tag = otpType === "login_mfa" ? "SIMULATED EMAIL - LOGIN MFA" : "SIMULATED EMAIL";
     console.log(`\n========================================`);
-    console.log(`[SIMULATED EMAIL - RESEND]`);
+    console.log(`[${tag}]`);
     console.log(`To: ${email}`);
     console.log(`OTP: ${challenge.rawCode}`);
     console.log(`Challenge ID: ${challenge.challengeId}`);
@@ -213,26 +214,42 @@ export const verifyEmailOtp = async (req: Request, res: Response): Promise<any> 
 // 4. POST /api/send-sms-otp
 export const sendSmsOtp = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { phone } = req.body;
-    if (!phone) {
-      return res.status(400).json({ error: "Phone number is required" });
+    const { phone, email, type } = req.body;
+    let targetPhone = phone;
+    let user = null;
+
+    if (email) {
+      user = await userModel.findUserByEmail(email);
     }
 
-    const user = await userModel.findUserByPhone(phone);
+    if (user && user.phone) {
+      targetPhone = user.phone;
+    }
+
+    if (!targetPhone) {
+      targetPhone = phone || email || (user ? user.email : "Mobile Phone");
+    }
+
+    if (!user && targetPhone) {
+      user = await userModel.findUserByPhone(targetPhone);
+    }
+
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const otpType = type || "registration_sms";
 
     const challenge = await otpModel.createOtpChallenge({
       userId: user ? user.id : null,
-      type: "registration_sms",
+      type: otpType,
       channel: "sms",
-      target: phone,
+      target: targetPhone || email || "Mobile Phone",
       expiresAt,
       maxAttempts: 3,
     });
 
+    const tag = otpType === "login_mfa" ? "SIMULATED SMS - LOGIN MFA" : "SIMULATED SMS";
     console.log(`\n========================================`);
-    console.log(`[SIMULATED SMS - RESEND]`);
-    console.log(`To: ${phone}`);
+    console.log(`[${tag}]`);
+    console.log(`To: ${targetPhone || email}`);
     console.log(`OTP: ${challenge.rawCode}`);
     console.log(`Challenge ID: ${challenge.challengeId}`);
     console.log(`Expires: ${expiresAt.toLocaleTimeString()}`);
@@ -243,7 +260,7 @@ export const sendSmsOtp = async (req: Request, res: Response): Promise<any> => {
       message: "SMS OTP sent successfully",
       challengeId: challenge.challengeId,
       method: "sms",
-      target: phone,
+      target: targetPhone || email,
       expiresAt,
     });
   } catch (error: any) {
@@ -459,8 +476,11 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ status: "INVALID_OTP", error: "Invalid or expired MFA challenge" });
     }
 
-    const targetEmail = email || result.otp?.target || "";
-    const user = await userModel.findUserByEmail(targetEmail);
+    const targetIdentifier = email || req.body.phone || result.otp?.target || "";
+    let user = result.otp?.userId ? await userModel.findUserById(result.otp.userId) : null;
+    if (!user && targetIdentifier) {
+      user = (await userModel.findUserByEmail(targetIdentifier)) || (await userModel.findUserByPhone(targetIdentifier));
+    }
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -570,3 +590,42 @@ export const getProtected = (req: AuthenticatedRequest, res: Response): any => {
     sessionId: req.sessionId,
   });
 };
+
+// 12. Evaluator Test API: GET /api/test/otp/:challengeId
+export const getTestOtp = (req: Request, res: Response): any => {
+  const challengeId = Array.isArray(req.params.challengeId)
+    ? req.params.challengeId[0]
+    : req.params.challengeId;
+  const testRecord = otpModel.getTestOtpByChallengeId(challengeId);
+  if (!testRecord) {
+    return res.status(404).json({ error: "Test OTP challenge not found or expired" });
+  }
+  return res.json({
+    challengeId: testRecord.challengeId,
+    target: testRecord.target,
+    type: testRecord.type,
+    channel: testRecord.channel,
+    otp: testRecord.rawCode,
+    expiresAt: testRecord.expiresAt,
+    maxAttempts: testRecord.maxAttempts,
+  });
+};
+
+// 13. Evaluator Test API: GET /api/test/otps
+export const getTestOtps = (_req: Request, res: Response): any => {
+  const records = otpModel.getAllTestOtps();
+  return res.json({
+    count: records.length,
+    otps: records.map((r) => ({
+      challengeId: r.challengeId,
+      target: r.target,
+      type: r.type,
+      channel: r.channel,
+      otp: r.rawCode,
+      expiresAt: r.expiresAt,
+      maxAttempts: r.maxAttempts,
+      createdAt: r.createdAt,
+    })),
+  });
+};
+

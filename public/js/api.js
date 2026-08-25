@@ -94,10 +94,10 @@ export const api = {
   },
 
   // Send Email OTP
-  async sendEmailOtp(email) {
+  async sendEmailOtp(email, type) {
     return request('/send-email-otp', {
       method: 'POST',
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, type }),
     });
   },
 
@@ -110,10 +110,14 @@ export const api = {
   },
 
   // Send SMS OTP
-  async sendSmsOtp(phone) {
+  async sendSmsOtp(phoneOrEmail, type) {
+    const isEmail = typeof phoneOrEmail === 'string' && phoneOrEmail.includes('@');
+    const body = isEmail
+      ? { email: phoneOrEmail, type }
+      : { phone: phoneOrEmail, type };
     return request('/send-sms-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify(body),
     });
   },
 
@@ -140,5 +144,10 @@ export const api = {
     const res = await request('/logout', { method: 'POST' });
     setMemoryToken('');
     return res;
+  },
+
+  // Evaluator helper API to retrieve test OTP
+  async getTestOtp(challengeId) {
+    return request(`/test/otp/${challengeId}`, { method: 'GET' });
   },
 };

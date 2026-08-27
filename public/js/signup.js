@@ -13,12 +13,12 @@ let activeRegistration = {
 document.addEventListener('DOMContentLoaded', async () => {
   setupPasswordToggle('passwordInput', 'togglePassword');
 
-  // Check if user is already logged in
-  const meRes = await api.getMe();
-  if (meRes.success && meRes.data.user) {
-    window.location.href = '/dashboard.html';
-    return;
-  }
+  // Check if user is already logged in (non-blocking)
+  api.getMe().then((meRes) => {
+    if (meRes.success && meRes.data?.user) {
+      window.location.href = '/dashboard.html';
+    }
+  }).catch(() => {});
 
   // UI Step Containers
   const step1View = document.getElementById('step1View');
@@ -54,6 +54,35 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const backToFormBtn1 = document.getElementById('backToFormBtn1');
 
+  function getPasswordStrength(pwd) {
+    if (!pwd) return '';
+    if (pwd.length < 8) return 'Weak';
+
+    const hasNumOrSpec = /[\d]|[^a-zA-Z0-9]/.test(pwd);
+
+    if (pwd.length >= 10 && hasNumOrSpec) return 'Strong';
+
+    return 'Medium';
+  }
+
+  const passwordInput = document.getElementById('passwordInput');
+  const strengthText = document.getElementById('passwordStrengthText');
+
+  if (passwordInput && strengthText) {
+    passwordInput.addEventListener('input', () => {
+      const strength = getPasswordStrength(passwordInput.value);
+      if (!strength) {
+        strengthText.classList.add('hidden');
+        return;
+      }
+      strengthText.classList.remove('hidden');
+      strengthText.textContent = `Password Strength: ${strength}`;
+      strengthText.className = `text-xs font-semibold mt-1 ${
+        strength === 'Weak' ? 'text-red-500' : strength === 'Medium' ? 'text-amber-500' : 'text-emerald-500'
+      }`;
+    });
+  }
+
   function updateIndicators(activeStep) {
     const indicators = [stepInd1, stepInd2, stepInd3, stepInd4];
     indicators.forEach((ind, index) => {
@@ -85,6 +114,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const password = document.getElementById('passwordInput').value;
       const confirmPassword = document.getElementById('confirmPasswordInput').value;
       const mfa_enabled = document.getElementById('mfaCheckbox').checked;
+
+      if (getPasswordStrength(password) === 'Weak') {
+        showAlert(alertContainer, 'Password is too weak. Please enter at least 8 characters to register.');
+        return;
+      }
 
       if (!email || !password || !phone) {
         showAlert(alertContainer, 'Please fill in email, phone number, and password.');
